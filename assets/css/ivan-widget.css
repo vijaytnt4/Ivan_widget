@@ -1,0 +1,847 @@
+/**
+ * Ivan AI Chatbot Widget Styles
+ * Encapsulated for Shadow DOM usage with CSS custom property theming.
+ */
+
+:host {
+  --ivan-primary: #031b45;
+  --ivan-primary-hover: #0a2e70;
+  --ivan-primary-active: #021435;
+  --ivan-primary-contrast: #ffffff;
+  --ivan-surface: #ffffff;
+  --ivan-surface-secondary: #f8fafc;
+  --ivan-border: #e2e8f0;
+  --ivan-text: #0f172a;
+  --ivan-text-muted: #64748b;
+  --ivan-bot-bubble: #f1f5f9;
+  --ivan-bot-bubble-text: #0f172a;
+  --ivan-user-bubble: var(--ivan-primary);
+  --ivan-user-bubble-text: var(--ivan-primary-contrast);
+  --ivan-font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --ivan-radius-lg: 16px;
+  --ivan-radius-md: 12px;
+  --ivan-radius-sm: 8px;
+  --ivan-shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  --ivan-shadow-launcher: 0 10px 15px -3px rgba(3, 27, 69, 0.4), 0 4px 6px -4px rgba(3, 27, 69, 0.25);
+  --ivan-z-index: 999999;
+  --ivan-transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --ivan-transition-normal: 250ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  display: block;
+  font-family: var(--ivan-font-family);
+  color: var(--ivan-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Floating Container */
+.ivan-container {
+  position: fixed;
+  z-index: var(--ivan-z-index);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.ivan-container * {
+  box-sizing: border-box;
+}
+
+/* Positions */
+.ivan-container.position-bottom-right {
+  bottom: 24px;
+  right: 24px;
+  align-items: flex-end;
+}
+
+.ivan-container.position-bottom-left {
+  bottom: 24px;
+  left: 24px;
+  align-items: flex-start;
+}
+
+/* Launcher Button */
+.ivan-launcher {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--ivan-primary);
+  color: var(--ivan-primary-contrast);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--ivan-shadow-launcher);
+  transition: transform var(--ivan-transition-normal), background-color var(--ivan-transition-fast), box-shadow var(--ivan-transition-fast);
+  outline: none;
+  padding: 0;
+  position: relative;
+}
+
+.ivan-launcher-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center top;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  display: block;
+}
+
+.ivan-launcher:hover {
+  transform: scale(1.06);
+  background: var(--ivan-primary-hover);
+  box-shadow: 0 12px 20px -3px rgba(3, 27, 69, 0.5);
+}
+
+.ivan-launcher:active {
+  transform: scale(0.96);
+  background: var(--ivan-primary-active, #021435);
+}
+
+.ivan-launcher:focus-visible {
+  outline: 3px solid rgba(3, 27, 69, 0.45);
+  outline-offset: 3px;
+}
+
+.ivan-launcher-icon {
+  width: 28px;
+  height: 28px;
+  transition: transform var(--ivan-transition-normal), opacity var(--ivan-transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ivan-launcher-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
+.ivan-launcher .icon-close {
+  display: none;
+}
+
+/* Hide floating launcher completely whenever chat window is open */
+.ivan-container.is-open .ivan-launcher {
+  display: none !important;
+}
+
+/* Notification badge / status dot */
+.ivan-launcher-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 14px;
+  height: 14px;
+  background: #10b981;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+/* Chat Window Box */
+.ivan-window {
+  width: 380px;
+  height: 600px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 48px);
+  background: var(--ivan-surface);
+  border-radius: var(--ivan-radius-lg);
+  box-shadow: var(--ivan-shadow-lg);
+  border: 1px solid var(--ivan-border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-bottom: 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.95) translateY(10px);
+  transform-origin: bottom right;
+  transition: opacity var(--ivan-transition-normal), transform var(--ivan-transition-normal), visibility var(--ivan-transition-normal), width var(--ivan-transition-normal), height var(--ivan-transition-normal);
+}
+
+.ivan-container.position-bottom-left .ivan-window {
+  transform-origin: bottom left;
+}
+
+.ivan-container.is-open .ivan-window {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1) translateY(0);
+}
+
+/* Expanded Mode (Right-Side Panel per Screenshot 3) */
+.ivan-container.is-expanded .ivan-window {
+  width: min(380px, calc(100vw - 24px));
+  height: min(850px, calc(100vh - 48px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 48px);
+  margin-bottom: 0;
+  box-shadow: 0 25px 50px -12px rgba(3, 27, 69, 0.35), 0 0 0 1px rgba(3, 27, 69, 0.1);
+}
+
+.ivan-container.is-expanded .ivan-portrait-banner {
+  display: none;
+}
+
+/* Portrait Banner (Layered portrait treatment) */
+.ivan-portrait-banner {
+  width: 100%;
+  height: 180px;
+  background: linear-gradient(180deg, #0b224f 0%, #031b45 100%);
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  display: block;
+}
+
+.ivan-portrait-media {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background Layer: Avatar image, cover sizing, blur, subtle dark/teal overlay */
+.ivan-portrait-bg {
+  position: absolute;
+  top: -24px;
+  left: -24px;
+  right: -24px;
+  bottom: -24px;
+  background-size: cover;
+  background-position: center 25%;
+  background-repeat: no-repeat;
+  filter: blur(18px) brightness(0.68) saturate(1.3);
+  transform: scale(1.15);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ivan-portrait-bg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(3, 27, 69, 0.2) 0%,
+    rgba(3, 27, 69, 0.45) 55%,
+    rgba(3, 27, 69, 0.88) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Foreground Layer: Uncropped contained avatar with full head & shoulders */
+.ivan-portrait-img {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: auto;
+  max-width: 100%;
+  height: 280px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.5));
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 22%, black 78%, transparent 100%),
+                      linear-gradient(to bottom, black 68%, transparent 95%);
+  mask-image: linear-gradient(to right, transparent 0%, black 22%, black 78%, transparent 100%),
+              linear-gradient(to bottom, black 68%, transparent 95%);
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+  pointer-events: none;
+}
+
+.ivan-portrait-banner.has-fallback .ivan-portrait-bg,
+.ivan-portrait-banner.has-fallback .ivan-portrait-bg-overlay,
+.ivan-portrait-banner.has-fallback .ivan-portrait-img {
+  display: none !important;
+}
+
+.ivan-portrait-fallback {
+  display: none;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, #0b2559 0%, #031b45 100%);
+  color: #ffffff;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  z-index: 2;
+}
+
+.ivan-portrait-banner.has-fallback .ivan-portrait-fallback {
+  display: flex;
+}
+
+.ivan-portrait-fallback-icon svg {
+  width: 48px;
+  height: 48px;
+  fill: rgba(255, 255, 255, 0.85);
+}
+
+.ivan-portrait-fallback-text {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.ivan-portrait-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.ivan-portrait-tag {
+  background: rgba(3, 27, 69, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
+}
+
+/* Header */
+.ivan-header {
+  background: var(--ivan-primary);
+  color: var(--ivan-primary-contrast);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.ivan-header-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ivan-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.ivan-avatar img,
+.ivan-header-avatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 50%;
+  display: block;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  box-sizing: border-box;
+}
+
+.ivan-avatar svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.ivan-header-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.ivan-title {
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.ivan-subtitle {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ivan-status-indicator {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #34d399;
+  display: inline-block;
+  box-shadow: 0 0 6px #34d399;
+}
+
+.ivan-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ivan-btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--ivan-primary-contrast);
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.85;
+  transition: opacity var(--ivan-transition-fast), background-color var(--ivan-transition-fast);
+  padding: 0;
+}
+
+.ivan-btn-icon:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.ivan-btn-icon:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 2px;
+}
+
+.ivan-btn-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* Messages Area */
+.ivan-messages {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--ivan-surface-secondary);
+  scroll-behavior: smooth;
+}
+
+/* Message Item */
+.ivan-message {
+  display: flex;
+  flex-direction: row;
+  max-width: 88%;
+  animation: ivan-fade-in 200ms ease-out forwards;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+@keyframes ivan-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ivan-message.user {
+  align-self: flex-end;
+  flex-direction: column;
+}
+
+.ivan-message.bot {
+  align-self: flex-start;
+}
+
+.ivan-msg-avatar-container {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ivan-msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1.5px solid rgba(0, 0, 0, 0.12);
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ivan-msg-avatar img,
+.ivan-msg-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  border-radius: 50%;
+  display: block;
+}
+
+.ivan-msg-avatar svg {
+  width: 18px;
+  height: 18px;
+  fill: var(--ivan-primary);
+}
+
+.ivan-bubble-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ivan-bubble {
+  padding: 12px 16px;
+  border-radius: var(--ivan-radius-md);
+  font-size: 14px;
+  line-height: 1.5;
+  word-break: break-word;
+  position: relative;
+}
+
+.ivan-message.user .ivan-bubble {
+  background: var(--ivan-user-bubble);
+  color: var(--ivan-user-bubble-text);
+  border-bottom-right-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.ivan-message.bot .ivan-bubble {
+  background: var(--ivan-bot-bubble);
+  color: var(--ivan-bot-bubble-text);
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--ivan-border);
+}
+
+.ivan-message-meta {
+  font-size: 11px;
+  color: var(--ivan-text-muted);
+  margin-top: 4px;
+  padding: 0 4px;
+}
+
+.ivan-message.user .ivan-message-meta {
+  text-align: right;
+}
+
+.ivan-typing-wrap {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  align-self: flex-start;
+  margin-top: 2px;
+}
+
+/* Markdown styling in messages */
+.ivan-bubble p {
+  margin: 0 0 8px 0;
+}
+
+.ivan-bubble p:last-child {
+  margin-bottom: 0;
+}
+
+.ivan-bubble a {
+  color: var(--ivan-primary);
+  text-decoration: underline;
+  cursor: pointer;
+  word-break: break-all;
+  transition: opacity var(--ivan-transition-fast);
+}
+
+.ivan-bubble a:hover {
+  opacity: 0.8;
+}
+
+.ivan-message.user .ivan-bubble a {
+  color: #ffffff;
+  text-decoration: underline;
+}
+
+.ivan-bubble code {
+  font-family: monospace, SFMono-Regular, Consolas, "Liberation Mono", Menlo;
+  font-size: 12px;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+.ivan-message.user .ivan-bubble code {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.ivan-bubble pre {
+  margin: 8px 0;
+  padding: 10px;
+  background: #1e293b;
+  color: #f8fafc;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+}
+
+.ivan-bubble pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+
+.ivan-bubble ul, .ivan-bubble ol {
+  margin: 4px 0 8px 18px;
+  padding: 0;
+}
+
+.ivan-bubble li {
+  margin-bottom: 3px;
+}
+
+.ivan-bubble blockquote {
+  border-left: 3px solid var(--ivan-primary);
+  margin: 6px 0;
+  padding-left: 10px;
+  color: var(--ivan-text-muted);
+}
+
+/* Typing Indicator */
+.ivan-typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  background: var(--ivan-bot-bubble);
+  border-radius: var(--ivan-radius-md);
+  border-bottom-left-radius: 4px;
+  border: 1px solid var(--ivan-border);
+  align-self: flex-start;
+  width: fit-content;
+}
+
+.ivan-typing-dot {
+  width: 7px;
+  height: 7px;
+  background-color: var(--ivan-text-muted);
+  border-radius: 50%;
+  animation: ivan-bounce 1.4s infinite ease-in-out both;
+}
+
+.ivan-typing-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.ivan-typing-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+@keyframes ivan-bounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Error message and Retry */
+.ivan-message.error .ivan-bubble {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.ivan-retry-btn {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #ffffff;
+  border: 1px solid #f87171;
+  color: #b91c1c;
+  padding: 4px 10px;
+  border-radius: var(--ivan-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--ivan-transition-fast);
+}
+
+.ivan-retry-btn:hover {
+  background: #fee2e2;
+}
+
+/* Input Area */
+.ivan-footer {
+  padding: 12px 16px;
+  background: var(--ivan-surface);
+  border-top: 1px solid var(--ivan-border);
+  display: flex;
+  flex-direction: column;
+}
+
+.ivan-input-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ivan-surface-secondary);
+  border: 1px solid var(--ivan-border);
+  border-radius: 24px;
+  padding: 4px 6px 4px 16px;
+  transition: border-color var(--ivan-transition-fast), box-shadow var(--ivan-transition-fast);
+}
+
+.ivan-input-container:focus-within {
+  border-color: var(--ivan-primary);
+  box-shadow: 0 0 0 3px rgba(3, 27, 69, 0.2);
+  background: var(--ivan-surface);
+}
+
+.ivan-textarea {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--ivan-text);
+  outline: none;
+  resize: none;
+  max-height: 100px;
+  min-height: 24px;
+  line-height: 24px;
+  padding: 0;
+  margin: 0;
+}
+
+.ivan-textarea::placeholder {
+  color: var(--ivan-text-muted);
+}
+
+.ivan-send-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ivan-primary);
+  color: var(--ivan-primary-contrast);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background-color var(--ivan-transition-fast), transform var(--ivan-transition-fast), opacity var(--ivan-transition-fast);
+  outline: none;
+  padding: 0;
+}
+
+.ivan-send-btn:hover:not(:disabled) {
+  background: var(--ivan-primary-hover);
+  transform: scale(1.05);
+}
+
+.ivan-send-btn:active:not(:disabled) {
+  background: var(--ivan-primary-active, #021435);
+  transform: scale(0.96);
+}
+
+.ivan-send-btn:focus-visible {
+  outline: 2px solid rgba(3, 27, 69, 0.45);
+  outline-offset: 2px;
+}
+
+.ivan-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.ivan-send-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+  transform: translateX(1px);
+}
+
+.ivan-brand-note {
+  display: none;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 480px) {
+  .ivan-container.position-bottom-right,
+  .ivan-container.position-bottom-left {
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    align-items: stretch;
+  }
+
+  .ivan-container.is-open:not(.is-expanded) .ivan-window {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    max-width: calc(100vw - 32px);
+    height: min(580px, calc(100vh - 32px));
+    margin: 0;
+    border-radius: var(--ivan-radius-lg);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  }
+
+  .ivan-container.is-open.is-expanded .ivan-window {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-width: 100vw;
+    max-height: 100dvh;
+    margin: 0;
+    border-radius: 0;
+    border: none;
+    z-index: calc(var(--ivan-z-index) + 1);
+  }
+
+  .ivan-container.is-open .ivan-launcher {
+    display: none !important;
+  }
+}
+
