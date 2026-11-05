@@ -229,6 +229,7 @@
       this.conversationId = null;
       this.abortController = null;
       this.lastFailedMessage = null;
+      this._isResetting = false;
 
       // Bound listeners
       this._handleToggle = this.toggle.bind(this);
@@ -494,6 +495,23 @@
                 </button>
               </div>
             </div>
+
+            <!-- Custom Reset Confirmation Modal -->
+            <div class="ivan-modal-backdrop" id="resetModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc" style="display: none;">
+              <div class="ivan-modal-card">
+                <div class="ivan-modal-icon" aria-hidden="true">
+                  ${ICONS.reset}
+                </div>
+                <h4 class="ivan-modal-title" id="modalTitle">New conversation</h4>
+                <p class="ivan-modal-desc" id="modalDesc">
+                  This will clear your conversation history. Do you want to proceed with a new chat?
+                </p>
+                <div class="ivan-modal-actions">
+                  <button type="button" class="ivan-btn-modal-confirm" id="modalConfirmBtn">Yes, proceed</button>
+                  <button type="button" class="ivan-btn-modal-cancel" id="modalCancelBtn">No, keep it</button>
+                </div>
+              </div>
+            </div>
           </div>
 
           <button
@@ -527,6 +545,9 @@
       this.$avatarBox = this.shadowRoot.getElementById('avatarBox');
       this.$headerTitle = this.shadowRoot.getElementById('headerTitle');
       this.$headerSubtitle = this.shadowRoot.getElementById('headerSubtitle');
+      this.$resetModal = this.shadowRoot.getElementById('resetModal');
+      this.$modalConfirmBtn = this.shadowRoot.getElementById('modalConfirmBtn');
+      this.$modalCancelBtn = this.shadowRoot.getElementById('modalCancelBtn');
 
       this.$launcher.addEventListener('click', this._handleToggle);
       this.$closeBtn.addEventListener('click', () => this.close());
@@ -540,6 +561,57 @@
       this.$input.addEventListener('keydown', this._handleKeyDown);
       this.$input.addEventListener('input', this._handleInput);
       this.$sendBtn.addEventListener('click', this._handleSend);
+
+      // Custom Reset Modal Event Listeners
+      if (this.$modalConfirmBtn) {
+        this.$modalConfirmBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.confirmReset();
+        });
+      }
+      if (this.$modalCancelBtn) {
+        this.$modalCancelBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.closeResetModal();
+        });
+      }
+      if (this.$resetModal) {
+        this.$resetModal.addEventListener('click', (e) => {
+          if (e.target === this.$resetModal) {
+            e.stopPropagation();
+            this.closeResetModal();
+          }
+        });
+        this.$resetModal.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            this.closeResetModal();
+            return;
+          }
+          if (e.key === 'Tab') {
+            const focusable = [this.$modalConfirmBtn, this.$modalCancelBtn].filter(Boolean);
+            if (focusable.length < 2) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (e.shiftKey && this.shadowRoot.activeElement === first) {
+              e.preventDefault();
+              last.focus();
+            } else if (!e.shiftKey && this.shadowRoot.activeElement === last) {
+              e.preventDefault();
+              first.focus();
+            }
+          }
+        });
+      }
+
+      this.$window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && this.$resetModal && this.$resetModal.classList.contains('is-active')) {
+          e.preventDefault();
+          e.stopPropagation();
+          this.closeResetModal();
+        }
+      });
 
       // Ensure anchor links open safely in a new tab without being blocked by host page scripts
       this.$messagesArea.addEventListener('click', (e) => {
@@ -608,6 +680,20 @@
           </div>
         </div>
       `;
+    }
+
+    _dispatch(eventName, detail = {}) {
+      try {
+        this.dispatchEvent(
+          new CustomEvent(eventName, {
+            detail,
+            bubbles: true,
+            composed: true
+          })
+        );
+      } catch (err) {
+        console.warn(`[Ivan AI] Failed to dispatch event ${eventName}:`, err);
+      }
     }
 
     toggleExpand(forceState) {
@@ -768,6 +854,12 @@
     }
 
     _onKeyDown(e) {
+      if (e.key === 'Escape' && this.$resetModal && this.$resetModal.classList.contains('is-active')) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.closeResetModal();
+        return;
+      }
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         if (!this.$sendBtn.disabled && !this.isLoading) {
@@ -806,55 +898,103 @@
       }
     }
 
-    resetConversation() {
-      if (confirm('Start a new conversation? This will clear current chat history.')) {
-        if (this.abortController) {
-          this.abortController.abort();
-        }
-        this.isLoading = false;
-        this.conversationId = null;
-        this.sessionId = 'ivan-' + generateUUID();
-
-        try {
-          localStorage.setItem('ivan_session_id', this.sessionId);
-          sessionStorage.removeItem(`ivan_conv_${this.sessionId}`);
-          sessionStorage.removeItem(`ivan_history_${this.sessionId}`);
-        } catch (e) {}
-
-        this.messages = [];
-        if (this.welcomeMessage) {
-          this.messages.push({
-            id: 'welcome',
-            role: 'assistant',
-            content: this.welcomeMessage,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-          });
-        }
-        this._saveHistory();
-        this._renderMessages();
-        this._hideTypingIndicator();
-        this.dispatchEvent(new CustomEvent('ivan:reset', { bubbles: true, composed: true }));
+    openResetModal() {
+      if (!this.$resetModal) return;
+      this.$resetModal.style.display = 'flex';
+      void this.$resetModal.offsetHeight;
+      this.$resetModal.classList.add('is-active');
+      if (this.$modalConfirmBtn) {
+        this.$modalConfirmBtn.focus();
       }
     }
 
+    closeResetModal() {
+      if (!this.$resetModal) return;
+      this.$resetModal.classList.remove('is-active');
+      setTimeout(() => {
+        if (this.$resetModal && !this.$resetModal.classList.contains('is-active')) {
+          this.$resetModal.style.display = 'none';
+        }
+      }, 200);
+      if (this.$resetBtn) {
+        this.$resetBtn.focus();
+      }
+    }
+
+    confirmReset() {
+      if (this._isResetting) return;
+      this._isResetting = true;
+      try {
+        this.closeResetModal();
+        this._executeReset();
+      } finally {
+        setTimeout(() => {
+          this._isResetting = false;
+        }, 300);
+      }
+    }
+
+    resetConversation() {
+      // Replaced browser-native confirm() with custom modal
+      this.openResetModal();
+    }
+
+    _executeReset() {
+      if (this.abortController) {
+        this.abortController.abort();
+      }
+      this.isLoading = false;
+      this.conversationId = null;
+      this.sessionId = 'ivan-' + generateUUID();
+
+      try {
+        localStorage.setItem('ivan_session_id', this.sessionId);
+        sessionStorage.removeItem(`ivan_conv_${this.sessionId}`);
+        sessionStorage.removeItem(`ivan_history_${this.sessionId}`);
+      } catch (e) {}
+
+      this.messages = [];
+      if (this.welcomeMessage) {
+        this.messages.push({
+          id: 'welcome',
+          role: 'assistant',
+          content: this.welcomeMessage,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+      }
+      this._saveHistory();
+      this._renderMessages();
+      this._hideTypingIndicator();
+      this._dispatch('ivan:reset', { sessionId: this.sessionId });
+    }
+
     async sendMessage(customText = null) {
-      let text = '';
+      // 1. Capture the input value into a local variable
+      let rawText = '';
       if (typeof customText === 'string') {
-        text = customText.trim();
+        rawText = customText;
       } else if (this.$input && typeof this.$input.value === 'string') {
-        text = this.$input.value.trim();
+        rawText = this.$input.value;
       }
 
-      if (!text || this.isLoading) return;
+      // 2. Trim and validate the message
+      const text = (rawText || '').trim();
 
-      this.lastFailedMessage = text;
+      // 3. Return only if the message is empty
+      // 4. Prevent duplicate submissions
+      if (!text || this.isLoading) {
+        return;
+      }
 
-      if (this.$input) {
-        this.$input.value = '';
-        this.$input.style.height = 'auto';
+      // Set loading state immediately to prevent duplicate submissions from rapid clicks or keys
+      this.isLoading = true;
+      if (this.$sendBtn) {
         this.$sendBtn.disabled = true;
       }
 
+      this.lastFailedMessage = text;
+
+      // 5. Add the user message to the conversation
       const userMsg = {
         id: 'msg-' + Date.now(),
         role: 'user',
@@ -865,21 +1005,34 @@
       this._appendMessageElement(userMsg);
       this._saveHistory();
 
-      this.dispatchEvent(
-        new CustomEvent('ivan:message-sent', {
-          detail: {
-            message: userMsg,
-            sessionId: this.sessionId,
-            conversationId: this.conversationId
-          },
-          bubbles: true,
-          composed: true
-        })
-      );
+      // 6. Clear the input after safely capturing the message
+      if (this.$input) {
+        this.$input.value = '';
+        this.$input.style.height = 'auto';
+      }
 
-      this.isLoading = true;
+      // 7. Trigger automatic expansion immediately
+      // CRITICAL: Layout expansion must never terminate, replace, or skip the API submission process
+      if (!this.isExpanded) {
+        try {
+          this.expand();
+        } catch (layoutErr) {
+          console.warn('[Ivan AI] Layout expansion warning:', layoutErr);
+        }
+      }
+
+      this._dispatch('ivan:message-sent', {
+        message: userMsg,
+        sessionId: this.sessionId,
+        conversationId: this.conversationId
+      });
+
       this._showTypingIndicator();
 
+      // 8. Start the existing API request using the captured message
+      // 9. Receive and process the backend response
+      // 10. Render Ivan's response
+      // 11. Release the sending/loading state
       try {
         if (!this.apiUrl || this.apiUrl === 'mock' || this.apiUrl === 'demo') {
           await this._mockStreamingResponse(text);
@@ -1358,6 +1511,7 @@
         }
 
         .ivan-window {
+          position: relative;
           width: 380px;
           height: 600px;
           max-width: calc(100vw - 32px);
@@ -1389,8 +1543,8 @@
 
         /* Expanded Mode (Right-Side Panel per Screenshot 3) */
         .ivan-container.is-expanded .ivan-window {
-          width: min(380px, calc(100vw - 24px));
-          height: min(850px, calc(100vh - 48px));
+          width: min(420px, calc(100vw - 24px));
+          height: calc(100vh - 48px);
           max-width: calc(100vw - 24px);
           max-height: calc(100vh - 48px);
           margin-bottom: 0;
@@ -1471,6 +1625,13 @@
           -webkit-mask-composite: source-in;
           mask-composite: intersect;
           pointer-events: none;
+          transform-origin: center bottom;
+          will-change: transform;
+          animation: ivan-portrait-idle 4.5s ease-in-out infinite;
+        }
+
+        .ivan-container:not(.is-open) .ivan-portrait-img {
+          animation-play-state: paused;
         }
 
         .ivan-portrait-banner.has-fallback .ivan-portrait-bg,
@@ -1577,6 +1738,16 @@
           display: block;
           border: 2px solid rgba(255, 255, 255, 0.7);
           box-sizing: border-box;
+          transform-origin: center center;
+          will-change: transform;
+        }
+
+        .ivan-container.is-open .ivan-header-avatar {
+          animation: ivan-header-avatar-idle 4.5s ease-in-out infinite;
+        }
+
+        .ivan-container:not(.is-open) .ivan-header-avatar {
+          animation-play-state: paused;
         }
 
         .ivan-avatar svg {
@@ -2041,12 +2212,198 @@
             margin: 0;
             border-radius: 0;
             border: none;
+            padding-top: env(safe-area-inset-top, 0);
+            padding-bottom: env(safe-area-inset-bottom, 0);
             z-index: calc(var(--ivan-z-index) + 1);
           }
 
           .ivan-container.is-open .ivan-launcher {
             display: none !important;
           }
+        }
+
+        /* Subtle Avatar Idle Animations (Floating & Breathing) */
+        @keyframes ivan-portrait-idle {
+          0%, 100% {
+            transform: translateX(-50%) translateY(0) scale(1);
+          }
+          50% {
+            transform: translateX(-50%) translateY(-4px) scale(1.012);
+          }
+        }
+
+        @keyframes ivan-header-avatar-idle {
+          0%, 100% {
+            transform: translateY(0) scale(1);
+          }
+          50% {
+            transform: translateY(-1.5px) scale(1.02);
+          }
+        }
+
+        /* Reduced Motion Accessibility */
+        @media (prefers-reduced-motion: reduce) {
+          .ivan-portrait-img {
+            animation: none !important;
+            transform: translateX(-50%) !important;
+          }
+          .ivan-header-avatar {
+            animation: none !important;
+            transform: none !important;
+          }
+          .ivan-modal-backdrop,
+          .ivan-modal-card {
+            transition: none !important;
+            transform: none !important;
+          }
+        }
+
+        /* Custom Reset Confirmation Modal */
+        .ivan-modal-backdrop {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(3, 27, 69, 0.48);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          z-index: 100;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          box-sizing: border-box;
+          opacity: 0;
+          visibility: hidden;
+          transition: opacity 0.2s ease, visibility 0.2s ease;
+          border-radius: inherit;
+        }
+
+        .ivan-modal-backdrop.is-active {
+          opacity: 1;
+          visibility: visible;
+        }
+
+        .ivan-modal-card {
+          background: #ffffff;
+          border-radius: var(--ivan-radius-lg, 16px);
+          box-shadow: 0 20px 45px -10px rgba(3, 27, 69, 0.35), 0 0 0 1px rgba(3, 27, 69, 0.1);
+          width: 100%;
+          max-width: 320px;
+          padding: 24px 22px 20px;
+          text-align: center;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          box-sizing: border-box;
+          transform: scale(0.92) translateY(8px);
+          transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .ivan-modal-backdrop.is-active .ivan-modal-card {
+          transform: scale(1) translateY(0);
+        }
+
+        .ivan-modal-icon {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(3, 27, 69, 0.08);
+          color: var(--ivan-primary, #031b45);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 12px;
+          flex-shrink: 0;
+        }
+
+        .ivan-modal-icon svg {
+          width: 22px;
+          height: 22px;
+          fill: currentColor;
+        }
+
+        .ivan-modal-title {
+          font-size: 16px;
+          font-weight: 600;
+          color: #0f172a;
+          margin: 0 0 8px 0;
+          line-height: 1.3;
+        }
+
+        .ivan-modal-desc {
+          font-size: 13.5px;
+          line-height: 1.5;
+          color: #475569;
+          margin: 0 0 20px 0;
+        }
+
+        .ivan-modal-actions {
+          display: flex;
+          gap: 10px;
+          width: 100%;
+          justify-content: center;
+        }
+
+        .ivan-btn-modal-confirm {
+          flex: 1;
+          background: var(--ivan-primary, #031b45);
+          color: #ffffff;
+          border: none;
+          border-radius: var(--ivan-radius-md, 8px);
+          padding: 10px 14px;
+          font-size: 13.5px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: background var(--ivan-transition-fast), transform var(--ivan-transition-fast), box-shadow var(--ivan-transition-fast);
+          box-shadow: 0 2px 6px rgba(3, 27, 69, 0.25);
+          white-space: nowrap;
+        }
+
+        .ivan-btn-modal-confirm:hover {
+          background: var(--ivan-primary-hover, #0a2e70);
+          box-shadow: 0 4px 10px rgba(3, 27, 69, 0.32);
+        }
+
+        .ivan-btn-modal-confirm:active {
+          transform: scale(0.98);
+          background: var(--ivan-primary-active, #021435);
+        }
+
+        .ivan-btn-modal-confirm:focus-visible {
+          outline: 2px solid var(--ivan-primary, #031b45);
+          outline-offset: 2px;
+        }
+
+        .ivan-btn-modal-cancel {
+          flex: 1;
+          background: #f1f5f9;
+          color: #334155;
+          border: 1px solid #cbd5e1;
+          border-radius: var(--ivan-radius-md, 8px);
+          padding: 10px 14px;
+          font-size: 13.5px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: background var(--ivan-transition-fast), color var(--ivan-transition-fast), border-color var(--ivan-transition-fast), transform var(--ivan-transition-fast);
+          white-space: nowrap;
+        }
+
+        .ivan-btn-modal-cancel:hover {
+          background: #e2e8f0;
+          color: #0f172a;
+          border-color: #94a3b8;
+        }
+
+        .ivan-btn-modal-cancel:active {
+          transform: scale(0.98);
+          background: #cbd5e1;
+        }
+
+        .ivan-btn-modal-cancel:focus-visible {
+          outline: 2px solid #94a3b8;
+          outline-offset: 2px;
         }
       `;
     }
